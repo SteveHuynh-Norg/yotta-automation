@@ -107,6 +107,26 @@ Each run posts a **job summary** ("Run Playwright tests summary") with a
 artifact. The summary table is produced by `src/reporters/github-summary-reporter.ts`,
 which is enabled only when `CI` is set (no effect on local runs).
 
+### Slack notifications
+
+A run summary can also be posted to a Slack channel via an **Incoming Webhook**,
+produced by `src/reporters/slack-reporter.ts`. The message shows the overall
+status, the pass/fail/flaky/skipped tally, the list of failed & flaky tests, and
+(in CI) a link back to the GitHub Actions run.
+
+It is driven entirely by env vars and is a **no-op when unconfigured**, so it is
+safe to keep enabled both locally and in CI:
+
+| Var | Purpose |
+|---|---|
+| `SLACK_WEBHOOK_URL` | Incoming-webhook URL. Unset → reporter does nothing. |
+| `SLACK_NOTIFY_ON` | `always` (default) posts every run; `failure` posts only on failed/flaky runs. |
+
+The webhook URL is a **secret** (anyone holding it can post to the channel) — it
+is **never committed**. Set it in a local `.env` (gitignored) and store it as the
+**`SLACK_WEBHOOK_URL`** GitHub Actions secret for CI (wired into both `ci.yml`
+and `forms-submission.yml`).
+
 ## Form-submission suite (contact forms)
 
 A separate suite verifies that a contact form accepts a submission end-to-end.
