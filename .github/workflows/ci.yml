@@ -1,0 +1,69 @@
+name: CI
+
+# CI/CD for the directory verification suite.
+#
+# Triggers:
+#   - push / pull_request to main  → verify on every change
+#   - schedule                     → recurring health check of the live sites
+#   - workflow_dispatch            → manual run with optional targeting
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mon / Wed / Fri at 07:00 ICT (GMT+7) == 00:00 UTC.
+    # cron is UTC; day-of-week 1=Mon, 3=Wed, 5=Fri.
+    - cron: '0 0 * * 1,3,5'
+  workflow_dispatch:
+    inputs:
+      site:
+        description: 'Run only one site by key (blank = all enabled sites)'
+        required: false
+        default: ''
+      use_sitemap:
+        description: 'Expand pages-under-test from sitemap.xml (heavier run)'
+        required: false
+        default: 'false'
+
+# Avoid piling up redundant runs on the same ref; let scheduled runs finish.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Verify directory sites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      # Step name "Run Playwright tests" -> the job summary renders the custom
+      # reporter's table under a "Run Playwright tests summary" heading.
+      - name: Run Playwright tests
+        env:
+          SITE: ${{ github.event.inputs.site }}
+          USE_SITEMAP: ${{ github.event.inputs.use_sitemap }}
+        run: npm test
+
+      - name: Upload Playwright HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
