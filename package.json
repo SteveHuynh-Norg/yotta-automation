@@ -4,13 +4,14 @@
   "description": "POM-based automation testing suite for verifying directory sites (links, JSON-LD, meta descriptions, navigation hierarchy). First target: directory.selleys.com.au",
   "type": "module",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
+    "test": "playwright test --grep-invert @forms",
+    "test:headed": "playwright test --grep-invert @forms --headed",
     "test:ui": "playwright test --ui",
     "test:links": "playwright test links.spec.ts",
     "test:jsonld": "playwright test jsonld.spec.ts",
     "test:meta": "playwright test meta-description.spec.ts",
     "test:nav": "playwright test navigation-structure.spec.ts",
+    "test:forms": "playwright test --grep @forms",
     "report": "playwright show-report",
     "typecheck": "tsc --noEmit",
     "install:browsers": "playwright install chromium"
