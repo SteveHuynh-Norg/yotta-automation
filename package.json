@@ -1,0 +1,33 @@
+{
+  "name": "yotta-automation",
+  "version": "1.0.0",
+  "description": "POM-based automation testing suite for verifying directory sites (links, JSON-LD, meta descriptions, navigation hierarchy). First target: directory.selleys.com.au",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:links": "playwright test links.spec.ts",
+    "test:jsonld": "playwright test jsonld.spec.ts",
+    "test:meta": "playwright test meta-description.spec.ts",
+    "test:nav": "playwright test navigation-structure.spec.ts",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit",
+    "install:browsers": "playwright install chromium"
+  },
+  "keywords": [
+    "playwright",
+    "pom",
+    "automation",
+    "seo",
+    "json-ld",
+    "qa"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
