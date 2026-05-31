@@ -83,6 +83,22 @@ SITE=selleys npm test                    # just Selleys
 USE_SITEMAP=true SITEMAP_LIMIT=50 npm test   # broader coverage from the sitemap
 ```
 
+## CI / CD (GitHub Actions)
+
+`.github/workflows/ci.yml` runs the full suite on GitHub-hosted runners:
+
+| Trigger | When |
+|---|---|
+| `push` / `pull_request` | On every change to `main` |
+| `schedule` | **Mon, Wed, Fri at 07:00 ICT (GMT+7)** — `cron: '0 0 * * 1,3,5'` (00:00 UTC) |
+| `workflow_dispatch` | Manual run; optional `site` and `use_sitemap` inputs |
+
+Each run posts a **job summary** ("Run Playwright tests summary") with a
+`Status / Test / Duration` table of failed & flaky tests, plus inline error
+**annotations** (Playwright's `github` reporter) and an uploaded HTML report
+artifact. The summary table is produced by `src/reporters/github-summary-reporter.ts`,
+which is enabled only when `CI` is set (no effect on local runs).
+
 ## Adding a new site
 
 Append a `SiteConfig` to `SITES` in `config/sites.ts` — set `baseURL`,

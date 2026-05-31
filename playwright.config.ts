@@ -15,10 +15,19 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   timeout: 90_000,
   expect: { timeout: 15_000 },
-  reporter: [
-    ['list'],
-    ['html', { open: 'never' }],
-  ],
+  // In CI we add the built-in `github` reporter (inline error annotations) and a
+  // custom reporter that writes the run summary table to the GitHub job summary.
+  reporter: process.env.CI
+    ? [
+        ['list'],
+        ['github'],
+        ['./src/reporters/github-summary-reporter.ts'],
+        ['html', { open: 'never' }],
+      ]
+    : [
+        ['list'],
+        ['html', { open: 'never' }],
+      ],
   use: {
     // baseURL is intentionally left to per-site config so the suite can target
     // many directories; page objects navigate with absolute URLs.
