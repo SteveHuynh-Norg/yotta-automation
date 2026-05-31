@@ -54,6 +54,8 @@ jobs:
           # Stored as a repo/Actions secret — never committed.
           QA_BYPASS_SECRET: ${{ secrets.QA_BYPASS_SECRET }}
           FORM: ${{ github.event.inputs.form }}
+          # Posts the run summary to Slack (no-op when the secret is unset).
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: npm run test:forms
 
       - name: Upload Playwright HTML report

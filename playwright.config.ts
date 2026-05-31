@@ -32,10 +32,17 @@ export default defineConfig({
         ['list'],
         ['github'],
         ['./src/reporters/github-summary-reporter.ts'],
+        // Posts the run summary to Slack when SLACK_WEBHOOK_URL is set;
+        // otherwise a no-op. Kept after the summary reporter so it observes the
+        // same final outcomes.
+        ['./src/reporters/slack-reporter.ts'],
         ['html', { open: 'never' }],
       ]
     : [
         ['list'],
+        // Enabled locally too, but silent unless SLACK_WEBHOOK_URL is set
+        // (e.g. in your gitignored .env) — handy for verifying the integration.
+        ['./src/reporters/slack-reporter.ts'],
         ['html', { open: 'never' }],
       ],
   use: {

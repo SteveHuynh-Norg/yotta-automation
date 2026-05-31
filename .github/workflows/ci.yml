@@ -58,6 +58,9 @@ jobs:
         env:
           SITE: ${{ github.event.inputs.site }}
           USE_SITEMAP: ${{ github.event.inputs.use_sitemap }}
+          # Posts the run summary to Slack. Stored as a repo/Actions secret —
+          # never committed. When the secret is unset the reporter is a no-op.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: npm test
 
       - name: Upload Playwright HTML report
