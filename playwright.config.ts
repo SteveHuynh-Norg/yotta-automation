@@ -1,5 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Load a local `.env` (gitignored) if present, so secrets like QA_BYPASS_SECRET
+// and toggles like SITE / FORM can be set without exporting them in the shell.
+// No-op when the file is absent or on a Node without loadEnvFile (CI passes
+// these as real environment variables).
+try {
+  process.loadEnvFile?.('.env');
+} catch {
+  // .env is optional — ignore when missing.
+}
+
 /**
  * Playwright configuration.
  *

@@ -66,6 +66,50 @@ export interface LinkResult {
   error?: string;
 }
 
+/**
+ * CSS selectors locating the fields of a contact form. Kept in config so a new
+ * form only needs selector tweaks — the page object and spec stay unchanged.
+ */
+export interface FormSelectors {
+  /** The <form> element. */
+  form: string;
+  /** Name field (optional on some forms). */
+  name?: string;
+  /** Email field (required). */
+  email: string;
+  /** Phone field (optional). */
+  phone?: string;
+  /** Message / enquiry textarea. */
+  message: string;
+  /** Submit button. */
+  submit: string;
+  /** Element shown on a successful submission. */
+  success: string;
+  /** Element shown when submission fails (validation / reCAPTCHA error). */
+  error: string;
+  /** Optional reCAPTCHA widget container (used to detect an un-bypassed challenge). */
+  recaptcha?: string;
+}
+
+/** Per-form configuration for the form-submission suite. */
+export interface FormConfig {
+  /** Stable key used to select the form via the FORM env var. */
+  key: string;
+  /** Display name. */
+  name: string;
+  /** Absolute URL of the page hosting the form. */
+  pageURL: string;
+  /** Whether this form participates in a default (no FORM filter) run. */
+  enabled: boolean;
+  /**
+   * Whether the page is protected by reCAPTCHA and requires the QA bypass URL
+   * (qa_token / qa_ts) to be appended before navigating.
+   */
+  usesRecaptchaBypass: boolean;
+  /** Field selectors. */
+  selectors: FormSelectors;
+}
+
 /** A parsed JSON-LD block. */
 export interface JsonLdBlock {
   raw: string;

@@ -25,7 +25,8 @@ yotta-automation/
 ├── playwright.config.ts        # Runner config (headless Chromium, retries, reports)
 ├── tsconfig.json
 ├── config/
-│   └── sites.ts                # Multi-site registry. Selleys is configured first.
+│   ├── sites.ts                # Multi-site registry. Selleys is configured first.
+│   └── forms.ts                # Multi-form registry. SS Doors contact form first.
 ├── fixtures/
 │   └── test-fixtures.ts        # Injects page objects into every test
 ├── src/
@@ -33,15 +34,17 @@ yotta-automation/
 │   │   ├── BasePage.ts         #   common: goto, meta, JSON-LD, link collection
 │   │   ├── DirectoryHomePage.ts#   homepage + nav tree
 │   │   ├── CategoryPage.ts     #   interior pages (category/subcategory/leaf)
+│   │   ├── ContactPage.ts      #   contact form: fill + submit (reads AJAX result)
 │   │   └── components/
 │   │       └── NavTreeComponent.ts  # parses the hierarchy widget
-│   ├── utils/                  # link checker, JSON-LD, sitemap, URL, page provider
+│   ├── utils/                  # link checker, JSON-LD, sitemap, URL, qaBypass (reCAPTCHA)
 │   └── types/                  # shared types + content-type → level mapping
 └── tests/                      # one spec per requirement
     ├── links.spec.ts
     ├── jsonld.spec.ts
     ├── meta-description.spec.ts
-    └── navigation-structure.spec.ts
+    ├── navigation-structure.spec.ts
+    └── form-submission.spec.ts # contact-form submission (tagged @forms)
 ```
 
 **POM principle:** specs contain *assertions only*; all DOM access, locators,
@@ -63,9 +66,14 @@ npm run test:links         # broken-link scan
 npm run test:jsonld        # JSON-LD verification
 npm run test:meta          # meta description verification
 npm run test:nav           # navigation hierarchy
+npm run test:forms         # contact-form submission (separate suite, see below)
 npm run test:ui            # interactive Playwright UI
 npm run report             # open the last HTML report
 ```
+
+> `npm test` runs the directory suites only — it excludes the form-submission
+> test (tagged `@forms`), which sends a real enquiry and needs a secret. Run
+> that one explicitly with `npm run test:forms`.
 
 ### Targeting / tuning (env vars — see `.env.example`)
 
@@ -98,6 +106,50 @@ Each run posts a **job summary** ("Run Playwright tests summary") with a
 **annotations** (Playwright's `github` reporter) and an uploaded HTML report
 artifact. The summary table is produced by `src/reporters/github-summary-reporter.ts`,
 which is enabled only when `CI` is set (no effect on local runs).
+
+## Form-submission suite (contact forms)
+
+A separate suite verifies that a contact form accepts a submission end-to-end.
+First target: the **SS Doors "Contact Us"** page (`https://ssdoors.com.au/contact-us/`),
+an Elementor Pro form guarded by **reCAPTCHA v2**.
+
+```bash
+QA_BYPASS_SECRET=… npm run test:forms        # run the form test(s)
+FORM=ssdoors QA_BYPASS_SECRET=… npm run test:forms   # one form by key
+```
+
+**What the test does** — fills the form (using a disposable `@yopmail.com`
+address and a self-identifying message so any received enquiry is clearly a
+test) and asserts the Elementor `admin-ajax.php` response is `success: true`.
+
+**reCAPTCHA bypass.** reCAPTCHA cannot be solved in automation, so the suite
+uses the developer-supplied bypass: `src/utils/qaBypass.ts` mints a fresh,
+time-limited URL (`?qa_token=<HMAC-SHA256(unix_ts, secret)>&qa_ts=<unix_ts>`,
+valid ~5 min) — an exact port of `qa-bypass-url.sh`. A page snippet forwards the
+token into the form POST so the server can skip verification.
+
+- The shared HMAC secret is **never committed** — set `QA_BYPASS_SECRET` in a
+  local `.env` (gitignored) and as the **`QA_BYPASS_SECRET`** GitHub Actions
+  secret for CI. The value comes from the developer's `qa-bypass-url.sh`.
+- The bypass also requires the **server-side** half (a handler that validates
+  the token and skips reCAPTCHA) to be live for the targeted site. If the server
+  still returns *"The Captcha field cannot be blank"*, the token is not being
+  honoured server-side — confirm the secret and that the handler is deployed.
+
+This suite has its **own** pipeline, **`.github/workflows/forms-submission.yml`**:
+
+| Trigger | When |
+|---|---|
+| `workflow_dispatch` | Manual run; optional `form` input |
+| `schedule` | **Mondays 07:30 ICT (GMT+7)** — `cron: '30 0 * * 1'` (00:30 UTC) |
+
+It is deliberately separate from `ci.yml` (it sends a real submission and needs
+the secret), so it does **not** run on every push/PR.
+
+### Adding a new form
+
+Append a `FormConfig` to `FORMS` in `config/forms.ts` — set `pageURL`, the field
+`selectors`, and `usesRecaptchaBypass`. No test code changes required.
 
 ## Adding a new site
 

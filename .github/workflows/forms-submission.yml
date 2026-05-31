@@ -1,0 +1,65 @@
+name: forms-submission
+
+# CI/CD for the contact-form submission suite.
+#
+# This is SEPARATE from the directory-verification `CI` workflow because a run
+# sends a REAL (clearly self-identified) enquiry through the live form, and it
+# needs the reCAPTCHA bypass secret. We therefore do NOT run it on every push /
+# PR — only on demand and on a light recurring schedule.
+#
+# Triggers:
+#   - workflow_dispatch → manual run, optionally targeting one form by key
+#   - schedule          → weekly health check that the form still accepts a
+#                          submission end-to-end
+on:
+  workflow_dispatch:
+    inputs:
+      form:
+        description: 'Run only one form by key (blank = all enabled forms)'
+        required: false
+        default: ''
+  schedule:
+    # Mondays at 07:30 ICT (GMT+7) == 00:30 UTC.
+    - cron: '30 0 * * 1'
+
+# Never run two form submissions concurrently — keep enquiries serialised.
+concurrency:
+  group: forms-submission-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    name: Verify contact form submission
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run form-submission test
+        env:
+          # Shared HMAC secret for the reCAPTCHA QA bypass (from qa-bypass-url.sh).
+          # Stored as a repo/Actions secret — never committed.
+          QA_BYPASS_SECRET: ${{ secrets.QA_BYPASS_SECRET }}
+          FORM: ${{ github.event.inputs.form }}
+        run: npm run test:forms
+
+      - name: Upload Playwright HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: forms-submission-report
+          path: playwright-report/
+          retention-days: 14
