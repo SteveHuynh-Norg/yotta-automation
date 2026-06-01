@@ -11,8 +11,13 @@ export interface CollectedLink {
   kind: string;
 }
 
-const concurrency = Number(process.env.LINK_CHECK_CONCURRENCY ?? 8);
+// Conservative defaults: live directory pages sit behind a CDN/WAF that
+// rate-limits bursts of requests from a single IP (notably datacenter IPs like
+// CI runners). Keep concurrency low and retry transient throttles rather than
+// hammering the origin. All three are overridable via env.
+const concurrency = Number(process.env.LINK_CHECK_CONCURRENCY ?? 4);
 const timeout = Number(process.env.LINK_CHECK_TIMEOUT_MS ?? 15000);
+const maxRetries = Number(process.env.LINK_CHECK_MAX_RETRIES ?? 3);
 
 /**
  * Module-level cache of HTTP results keyed by normalised URL. The same link
@@ -26,9 +31,33 @@ function isIgnored(raw: string, site: SiteConfig): boolean {
   return site.linkCheck.ignorePatterns.some((re) => re.test(raw));
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Delay (ms) before the next retry. Honours a `Retry-After` header when the
+ * server provides one (delta-seconds or HTTP-date), capped at 30s. Otherwise
+ * exponential backoff with jitter: ~0.5s, 1s, 2s … capped at 10s.
+ */
+function backoffMs(retryAfter: string | undefined, attempt: number): number {
+  if (retryAfter) {
+    const secs = Number(retryAfter);
+    if (Number.isFinite(secs)) return Math.min(secs * 1000, 30_000);
+    const when = Date.parse(retryAfter);
+    if (!Number.isNaN(when)) return Math.min(Math.max(when - Date.now(), 0), 30_000);
+  }
+  return Math.min(500 * 2 ** attempt + Math.random() * 250, 10_000);
+}
+
 /**
  * Check a single HTTP(S) URL. Tries a lightweight GET (HEAD is unreliable on
  * many static hosts) and treats any status < 400 as OK. Results are cached.
+ *
+ * Rate-limit aware: a 429 (Too Many Requests) or 503 is a transient throttle
+ * from the site's CDN/WAF, NOT a broken link. We back off — honouring any
+ * `Retry-After` header — and retry up to `maxRetries` times before reporting.
+ * This stops a burst of concurrent checks from being misreported as hundreds
+ * of dead links. Network-level errors (timeouts, resets — also common under
+ * throttling) are retried the same way.
  */
 async function checkHttp(
   request: APIRequestContext,
@@ -39,12 +68,24 @@ async function checkHttp(
   if (cached) return cached;
 
   let result: { status: number | null; ok: boolean; error?: string };
-  try {
-    const res = await request.get(url, { timeout, maxRedirects: 5 });
-    const status = res.status();
-    result = { status, ok: status < 400 };
-  } catch (err) {
-    result = { status: null, ok: false, error: (err as Error).message };
+  let attempt = 0;
+  for (;;) {
+    try {
+      const res = await request.get(url, { timeout, maxRedirects: 5 });
+      const status = res.status();
+      if ((status === 429 || status === 503) && attempt < maxRetries) {
+        await sleep(backoffMs(res.headers()['retry-after'], attempt++));
+        continue;
+      }
+      result = { status, ok: status < 400 };
+    } catch (err) {
+      if (attempt < maxRetries) {
+        await sleep(backoffMs(undefined, attempt++));
+        continue;
+      }
+      result = { status: null, ok: false, error: (err as Error).message };
+    }
+    break;
   }
   httpCache.set(key, result);
   return result;

@@ -83,8 +83,9 @@ npm run report             # open the last HTML report
 | `BASE_URL` | Override the primary site's base URL | config value |
 | `USE_SITEMAP` | Expand pages-under-test from `sitemap.xml` | `false` |
 | `SITEMAP_LIMIT` | Cap sitemap URLs when expanding (`0` = no cap) | `25` |
-| `LINK_CHECK_CONCURRENCY` | Parallel link requests | `8` |
+| `LINK_CHECK_CONCURRENCY` | Parallel link requests (kept low to avoid CDN/WAF rate-limiting) | `4` |
 | `LINK_CHECK_TIMEOUT_MS` | Per-link timeout | `15000` |
+| `LINK_CHECK_MAX_RETRIES` | Retries on transient `429`/`503`/network errors (backoff honours `Retry-After`) | `3` |
 
 ```bash
 SITE=selleys npm test                    # just Selleys
