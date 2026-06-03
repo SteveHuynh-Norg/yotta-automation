@@ -55,6 +55,13 @@ export default defineConfig({
     ignoreHTTPSErrors: false,
     userAgent:
       'yotta-automation-qa/1.0 (+Playwright; link & structured-data verification)',
+    // QA bypass header for Cloudflare Bot Fight Mode (BND zones that 403 the
+    // automated browser). Sent on every request when QA_BYPASS_HEADER is set;
+    // sites that don't look for it simply ignore it. See dev note on Monday
+    // item 2702399641 (v2.3).
+    ...(process.env.QA_BYPASS_HEADER
+      ? { extraHTTPHeaders: { 'X-QA-Bypass': process.env.QA_BYPASS_HEADER } }
+      : {}),
   },
   projects: [
     {

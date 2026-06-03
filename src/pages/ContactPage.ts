@@ -30,20 +30,23 @@ export class ContactPage extends BasePage {
   async open(form: FormConfig, url: string): Promise<void> {
     this.selectors = form.selectors;
     await this.goto(url);
-    await expect(this.form, 'contact form not found on page').toBeVisible();
+    // A page may host more than one Elementor form; scope to the target by name
+    // (selectors.form already does) and take the first match defensively.
+    await expect(this.form.first(), 'contact form not found on page').toBeVisible();
 
-    // Wait until the reCAPTCHA widget has rendered its iframe. This only happens
-    // once Elementor's frontend JS and the reCAPTCHA API have initialised, so it
-    // is a reliable proxy for "the form's submit handler is attached" — clicking
-    // before that does a no-op instead of an AJAX submit. Best-effort: a form
-    // without reCAPTCHA simply skips the wait.
+    // Wait until the reCAPTCHA v2 widget has rendered its iframe. This only
+    // happens once Elementor's frontend JS and the reCAPTCHA API have
+    // initialised, so it is a reliable proxy for "the form's submit handler is
+    // attached" — clicking before that does a no-op instead of an AJAX submit.
+    // Best-effort and short: reCAPTCHA v3 forms (and any form without a checkbox
+    // widget) have no such iframe, so we don't want to block long here.
     if (this.selectors.recaptcha) {
       await this.page
         .locator(`${this.selectors.recaptcha} iframe`)
         .first()
-        .waitFor({ state: 'attached', timeout: 20_000 })
+        .waitFor({ state: 'attached', timeout: 8_000 })
         .catch(() => {
-          /* widget may be suppressed by a working bypass — proceed regardless */
+          /* no v2 widget (v3 form, or bypass suppressed it) — proceed regardless */
         });
     }
   }
@@ -52,16 +55,90 @@ export class ContactPage extends BasePage {
     return this.page.locator(this.selectors.form);
   }
 
-  /** Fill every field that the form exposes a selector for. */
+  /**
+   * Fill the form for a successful submission.
+   *
+   * Across the estate the forms are heterogeneous: Elementor auto-generates most
+   * field IDs (only `email` is consistently named) and many forms carry extra
+   * required fields beyond name/email/phone/message — Suburb, Postcode, Street
+   * Address, First/Last Name, a consent checkbox, etc. Leaving any required field
+   * blank fails server-side validation, so rather than target a fixed set of
+   * selectors we sweep every visible field in the form and fill it by type +
+   * label heuristic. Hidden fields (incl. Elementor's `display:none` honeypot)
+   * are skipped, which also keeps the submission from being flagged as spam.
+   */
   async fill(data: ContactFormData): Promise<void> {
-    if (this.selectors.name && data.name !== undefined) {
-      await this.page.locator(this.selectors.name).fill(data.name);
+    const form = this.form.first();
+
+    // Text-like inputs and textareas.
+    const fields = form.locator(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]), textarea',
+    );
+    const fieldCount = await fields.count();
+    for (let i = 0; i < fieldCount; i++) {
+      const field = fields.nth(i);
+      if (!(await field.isVisible().catch(() => false))) continue;
+      const value = await this.valueForField(field, data);
+      if (value === null) continue;
+      await field.fill(value).catch(() => {
+        /* a field we cannot fill (readonly/disabled) is not fatal — skip it */
+      });
     }
-    await this.page.locator(this.selectors.email).fill(data.email);
-    if (this.selectors.phone && data.phone !== undefined) {
-      await this.page.locator(this.selectors.phone).fill(data.phone);
+
+    // Tick any required consent checkbox (e.g. the B&D privacy acknowledgement).
+    const checkboxes = form.locator('input[type="checkbox"]');
+    const cbCount = await checkboxes.count();
+    for (let i = 0; i < cbCount; i++) {
+      const box = checkboxes.nth(i);
+      if (!(await box.isVisible().catch(() => false))) continue;
+      if ((await isRequired(box)) && !(await box.isChecked().catch(() => false))) {
+        await box.check().catch(() => {});
+      }
     }
-    await this.page.locator(this.selectors.message).fill(data.message);
+
+    // For any required <select>, choose the first option with a real value.
+    const selects = form.locator('select');
+    const selCount = await selects.count();
+    for (let i = 0; i < selCount; i++) {
+      const sel = selects.nth(i);
+      if (!(await sel.isVisible().catch(() => false))) continue;
+      if (!(await isRequired(sel))) continue;
+      const optionValue = await sel
+        .locator('option')
+        .evaluateAll((opts) => {
+          const first = (opts as HTMLOptionElement[]).find((o) => o.value.trim() !== '');
+          return first ? first.value : null;
+        })
+        .catch(() => null);
+      if (optionValue) await sel.selectOption(optionValue).catch(() => {});
+    }
+  }
+
+  /**
+   * Decide what to type into a single field, from its type then placeholder /
+   * name / aria-label keywords. Returns null to leave the field untouched.
+   */
+  private async valueForField(field: Locator, data: ContactFormData): Promise<string | null> {
+    const meta = await field.evaluate((el) => ({
+      tag: el.tagName.toLowerCase(),
+      type: (el.getAttribute('type') ?? '').toLowerCase(),
+      hint: `${el.getAttribute('placeholder') ?? ''} ${el.getAttribute('name') ?? ''} ${el.getAttribute('aria-label') ?? ''}`.toLowerCase(),
+    }));
+    const { tag, type, hint } = meta;
+    const phone = data.phone ?? '0400000000';
+
+    if (tag === 'textarea') return data.message;
+    if (type === 'email' || /e-?mail/.test(hint)) return data.email;
+    if (type === 'tel' || /phone|mobile/.test(hint)) return phone;
+    if (/post.?code|zip/.test(hint)) return '3000';
+    if (/suburb|city|town/.test(hint)) return 'Melbourne';
+    if (/\bstate\b/.test(hint)) return 'VIC';
+    if (/address|street/.test(hint)) return '1 Test Street';
+    if (/last\s*name|surname|family\s*name/.test(hint)) return 'QA';
+    if (/first\s*name|given\s*name/.test(hint)) return 'Yotta';
+    // Any remaining text field (incl. a plain "Name") gets the generic name —
+    // filling optional fields is harmless and covers unlabelled required ones.
+    return data.name ?? 'Yotta QA';
   }
 
   /**
@@ -97,7 +174,16 @@ export class ContactPage extends BasePage {
         this.page.locator(this.selectors.submit).click(),
       ]);
 
-      const json = (await response.json().catch(() => null)) as ElementorFormResponse | null;
+      // Read the body once as text so we can both parse JSON and, when the
+      // server rejects without a structured message, surface the raw response
+      // for the developer to diagnose (e.g. the thegaragedoorguys product-page).
+      const bodyText = await response.text().catch(() => '');
+      let json: ElementorFormResponse | null = null;
+      try {
+        json = bodyText ? (JSON.parse(bodyText) as ElementorFormResponse) : null;
+      } catch {
+        json = null;
+      }
       if (json?.success) {
         return { outcome: 'success', message: json.data?.message ?? 'Submitted' };
       }
@@ -105,7 +191,17 @@ export class ContactPage extends BasePage {
         .filter((v): v is string => Boolean(v))
         .join('; ');
       const message = [json?.data?.message, fieldErrors].filter(Boolean).join(' — ');
-      return { outcome: 'error', message: message || 'Submission was rejected by the server.' };
+      if (message) {
+        return { outcome: 'error', message };
+      }
+      // No structured message — attach the raw response body (truncated).
+      const raw = bodyText.replace(/\s+/g, ' ').trim().slice(0, 500);
+      return {
+        outcome: 'error',
+        message: raw
+          ? `Submission was rejected by the server — raw response: ${raw}`
+          : 'Submission was rejected by the server (empty response).',
+      };
     } catch {
       // No AJAX response — surface whatever banner the form rendered, if any.
       return this.readBanner();
@@ -127,6 +223,13 @@ export class ContactPage extends BasePage {
         'Form did not submit — no admin-ajax response and no banner (client-side reCAPTCHA likely blocked it).',
     };
   }
+}
+
+/** True if the control is marked required (HTML `required` or `aria-required`). */
+function isRequired(field: Locator): Promise<boolean> {
+  return field.evaluate(
+    (el) => el.hasAttribute('required') || el.getAttribute('aria-required') === 'true',
+  );
 }
 
 /** Shape of Elementor Pro's form-submission AJAX response. */
