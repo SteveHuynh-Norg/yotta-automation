@@ -29,6 +29,7 @@ export class ContactPage extends BasePage {
   /** Bind this object to a form's selectors and navigate to `url`. */
   async open(form: FormConfig, url: string): Promise<void> {
     this.selectors = form.selectors;
+    await this.applyBypassHeader(url);
     await this.goto(url);
     // A page may host more than one Elementor form; scope to the target by name
     // (selectors.form already does) and take the first match defensively.
@@ -49,6 +50,35 @@ export class ContactPage extends BasePage {
           /* no v2 widget (v3 form, or bypass suppressed it) — proceed regardless */
         });
     }
+  }
+
+  /**
+   * Add the `X-QA-Bypass` header (Cloudflare Bot Fight Mode allowlist for the
+   * BND zones) to FIRST-PARTY requests only — i.e. requests to the form page's
+   * own host (the document, its assets, and admin-ajax). Sending it cross-origin
+   * (e.g. to Google's reCAPTCHA script) trips a CORS preflight rejection, so we
+   * scope it by host. No-op when QA_BYPASS_HEADER is unset.
+   */
+  private async applyBypassHeader(url: string): Promise<void> {
+    const token = process.env.QA_BYPASS_HEADER;
+    if (!token) return;
+    let host: string;
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      return;
+    }
+    await this.page.route(
+      (reqUrl) => {
+        try {
+          return new URL(reqUrl).hostname === host;
+        } catch {
+          return false;
+        }
+      },
+      (route) =>
+        route.continue({ headers: { ...route.request().headers(), 'x-qa-bypass': token } }),
+    );
   }
 
   private get form(): Locator {

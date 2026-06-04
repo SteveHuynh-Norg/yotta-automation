@@ -199,10 +199,10 @@ function elementorSelectors(formName: string): FormSelectors {
 
 /**
  * Hostnames temporarily skipped (still listed above for when they come back).
- * - thedoorman.com.au: dev confirmed Elementor isn't rendering any widgets on
- *   the pages (form defined in postmeta but not output) — a server-side fix on
- *   their end, not a bypass issue. Skip until the dev re-saves/regenerates it
- *   (Monday item 2702399641, reply 111386947). Remove this entry to re-enable.
+ * - thedoorman.com.au: still renders ZERO <form> elements on the logged-out
+ *   frontend (verified fresh, cache-MISS) even after the dev's 2026-06-04 file-
+ *   perms fix — the form widgets aren't in the anonymous HTML (Monday item
+ *   2702399641). Keep skipped until a logged-out page actually renders the form.
  */
 const SKIP_HOST_SUBSTRINGS = ['thedoorman.com.au'];
 
