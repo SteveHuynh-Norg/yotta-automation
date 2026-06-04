@@ -197,13 +197,23 @@ function elementorSelectors(formName: string): FormSelectors {
   };
 }
 
+/**
+ * Hostnames temporarily skipped (still listed above for when they come back).
+ * - thedoorman.com.au: dev confirmed Elementor isn't rendering any widgets on
+ *   the pages (form defined in postmeta but not output) — a server-side fix on
+ *   their end, not a bypass issue. Skip until the dev re-saves/regenerates it
+ *   (Monday item 2702399641, reply 111386947). Remove this entry to re-enable.
+ */
+const SKIP_HOST_SUBSTRINGS = ['thedoorman.com.au'];
+
 /** Turn an in-scope page row into a full FormConfig. */
 function buildElementorForm(page: ElementorFormPage): FormConfig {
+  const host = new URL(page.url).hostname.replace(/^www\./, '');
   return {
     key: keyForPage(page.url),
-    name: `${new URL(page.url).hostname.replace(/^www\./, '')} — ${page.formName}`,
+    name: `${host} — ${page.formName}`,
     pageURL: page.url,
-    enabled: true,
+    enabled: !SKIP_HOST_SUBSTRINGS.some((h) => page.url.includes(h)),
     usesRecaptchaBypass: true,
     selectors: elementorSelectors(page.formName),
   };
