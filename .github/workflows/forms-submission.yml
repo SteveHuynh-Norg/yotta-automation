@@ -53,6 +53,9 @@ jobs:
           # Shared HMAC secret for the reCAPTCHA QA bypass (from qa-bypass-url.sh).
           # Stored as a repo/Actions secret — never committed.
           QA_BYPASS_SECRET: ${{ secrets.QA_BYPASS_SECRET }}
+          # Static token for the X-QA-Bypass header (gets the browser past
+          # Cloudflare Bot Fight Mode on the BND zones). Stored as an Actions secret.
+          QA_BYPASS_HEADER: ${{ secrets.QA_BYPASS_HEADER }}
           FORM: ${{ github.event.inputs.form }}
           # Posts the run summary to Slack (no-op when the secret is unset).
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

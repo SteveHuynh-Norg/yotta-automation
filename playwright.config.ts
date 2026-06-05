@@ -55,6 +55,10 @@ export default defineConfig({
     ignoreHTTPSErrors: false,
     userAgent:
       'yotta-automation-qa/1.0 (+Playwright; link & structured-data verification)',
+    // NOTE: the X-QA-Bypass header (for Cloudflare Bot Fight Mode on the BND
+    // zones) is NOT set globally — sending it cross-origin trips a CORS preflight
+    // rejection on Google's reCAPTCHA script. It is applied per first-party host
+    // in ContactPage.open() instead. See Monday item 2702399641 (v2.5 trace).
   },
   projects: [
     {

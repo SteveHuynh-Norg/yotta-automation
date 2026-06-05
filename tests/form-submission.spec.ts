@@ -3,8 +3,10 @@ import { getActiveForms } from '../config/forms.js';
 import { buildBypassUrlFromEnv } from '../src/utils/qaBypass.js';
 
 /**
- * Requirement: "perform the form submission on the contact page — one test for
- * the successful submission only."
+ * Requirement: confirm the developer's reCAPTCHA QA bypass lets us fill and
+ * submit every listed WordPress (Elementor) form successfully. One success-path
+ * test is generated per in-scope page (see config/forms.ts) — the scenario is
+ * identical across the estate; only the page list grows.
  *
  * For reCAPTCHA-protected forms we cannot solve the challenge in a browser, so
  * we navigate via the developer-supplied QA bypass URL (a fresh, HMAC-signed
@@ -12,17 +14,27 @@ import { buildBypassUrlFromEnv } from '../src/utils/qaBypass.js';
  * page URL / AJAX referrer, so the server skips the reCAPTCHA check and the
  * submission goes through.
  *
- * Per the QA team's convention, the test uses a disposable @yopmail.com address
- * and a self-identifying message so any received enquiry is obviously a test.
+ * Per the QA team's convention, each test uses a disposable @yopmail.com address
+ * (unique per form/run) and a self-identifying message so any received enquiry
+ * is obviously a test.
  */
 const TEST_MESSAGE =
   'This is the test by the QA team from Yotta Digital, please ignore';
 
 for (const form of getActiveForms()) {
-  test.describe(`[${form.name}] Form submission`, () => {
+  // `form.key` is unique per page; multiple pages can share a display name
+  // (e.g. several "New Form" pages on one site), so the key keeps test titles
+  // distinct as Playwright requires.
+  test.describe(`[${form.key}] ${form.name}`, () => {
     test('submits successfully', { tag: '@forms' }, async ({ contactPage }) => {
-      // A unique inbox per run keeps submissions traceable and avoids dedupe.
-      const email = `qa-yotta-${Date.now()}@yopmail.com`;
+      // Some configured pages aren't automatable yet (e.g. popup/library
+      // template URLs that drop the bypass token on redirect) — list them but
+      // skip with the reason rather than fail the run.
+      test.skip(Boolean(form.skip), form.skip ?? '');
+
+      // A unique inbox per form+run keeps submissions traceable and avoids
+      // dedupe/collisions when forms run in parallel.
+      const email = `qa-yotta-${form.key}-${Date.now()}@yopmail.com`;
 
       // Build the navigation URL. reCAPTCHA-protected forms get a fresh bypass
       // token appended right before navigating (the token is short-lived).

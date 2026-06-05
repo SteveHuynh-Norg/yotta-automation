@@ -131,17 +131,21 @@ and `forms-submission.yml`).
 ## Form-submission suite (contact forms)
 
 A separate suite verifies that a contact form accepts a submission end-to-end.
-First target: the **SS Doors "Contact Us"** page (`https://ssdoors.com.au/contact-us/`),
-an Elementor Pro form guarded by **reCAPTCHA v2**.
+It is data-driven (`config/forms.ts`): one success-path test per in-scope page,
+covering every **reCAPTCHA-protected Elementor** form across the dealer estate
+(both reCAPTCHA **v2** and **v3**). Adding a form is a config-only change.
 
 ```bash
-QA_BYPASS_SECRET=… npm run test:forms        # run the form test(s)
-FORM=ssdoors QA_BYPASS_SECRET=… npm run test:forms   # one form by key
+QA_BYPASS_SECRET=… npm run test:forms                  # all configured forms
+FORM=ssdoors-contact-us QA_BYPASS_SECRET=… npm run test:forms   # one form by key
+FORM=89s.com.au QA_BYPASS_SECRET=… npm run test:forms           # a whole site (key/URL substring)
 ```
 
-**What the test does** — fills the form (using a disposable `@yopmail.com`
-address and a self-identifying message so any received enquiry is clearly a
-test) and asserts the Elementor `admin-ajax.php` response is `success: true`.
+**What the test does** — fills the form generically (sweeps and fills every
+required field — name/email/phone/message plus extras like suburb/postcode and
+consent — using a disposable `@yopmail.com` address and a self-identifying
+message so any received enquiry is clearly a test) and asserts the Elementor
+`admin-ajax.php` response is `success: true`.
 
 **reCAPTCHA bypass.** reCAPTCHA cannot be solved in automation, so the suite
 uses the developer-supplied bypass: `src/utils/qaBypass.ts` mints a fresh,
@@ -156,6 +160,10 @@ token into the form POST so the server can skip verification.
   the token and skips reCAPTCHA) to be live for the targeted site. If the server
   still returns *"The Captcha field cannot be blank"*, the token is not being
   honoured server-side — confirm the secret and that the handler is deployed.
+- Some dealer zones sit behind **Cloudflare Bot Fight Mode** and 403 the
+  automated browser. Set **`QA_BYPASS_HEADER`** (local `.env` + GitHub Actions
+  secret) to the developer-supplied token; it is sent as the `X-QA-Bypass`
+  request header on every request to clear those zones (no-op elsewhere).
 
 This suite has its **own** pipeline, **`.github/workflows/forms-submission.yml`**:
 
