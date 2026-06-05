@@ -169,11 +169,15 @@ This suite has its **own** pipeline, **`.github/workflows/forms-submission.yml`*
 
 | Trigger | When |
 |---|---|
+| `push` / `pull_request` | Changes touching the form-submission code paths (the directory `ci.yml` ignores those same paths, so form changes are verified here, not there) |
 | `workflow_dispatch` | Manual run; optional `form` input |
 | `schedule` | **Mondays 07:30 ICT (GMT+7)** — `cron: '30 0 * * 1'` (00:30 UTC) |
 
-It is deliberately separate from `ci.yml` (it sends a real submission and needs
-the secret), so it does **not** run on every push/PR.
+Runs the full estate **serially** (`--workers=1`; the estate is flaky under
+parallel load) and **excludes the `@bnd`-tagged Cloudflare zones**, which reject
+the GitHub runner's datacenter IP (they pass on a local run, which applies no
+such exclusion — pending a dev-side allowlist). It is separate from `ci.yml`
+because it sends real, self-identified submissions.
 
 ### Adding a new form
 
