@@ -187,27 +187,63 @@ export class ContactPage extends BasePage {
    * Submit the form and return the authoritative outcome.
    *
    * Elementor Pro posts to `admin-ajax.php` and returns JSON
-   * (`{ success, data: { message, errors } }`), so we read that response rather
-   * than racing the DOM banner — which is timing/scroll dependent and easily
-   * missed. If no AJAX request fires within the timeout (e.g. client-side
-   * reCAPTCHA blocked the submit), we fall back to the on-page banner text.
+   * (`{ success, data: { message, errors } }`). We capture that response via a
+   * route intercept rather than `waitForResponse(...).text()`: on a successful
+   * submission Elementor follows the response with a redirect to a thank-you
+   * page (`data.redirect_url`), and the navigation evicts the response body
+   * before a deferred `.text()` can read it — surfacing a real success as a
+   * false "empty response". Inside the route handler we fetch the response and
+   * read its body in-flight (before the page navigates), then fulfil the page
+   * with it. If no admin-ajax fires (e.g. client-side reCAPTCHA blocked the
+   * submit), we fall back to the on-page banner text.
    */
   async submit(
     timeout = 30_000,
   ): Promise<{ outcome: 'success' | 'error'; message: string }> {
-    try {
-      const [response] = await Promise.all([
-        this.page.waitForResponse(
-          (r) => r.url().includes('admin-ajax.php') && r.request().method() === 'POST',
-          { timeout },
-        ),
-        this.page.locator(this.selectors.submit).click(),
-      ]);
+    const token = process.env.QA_BYPASS_HEADER;
+    let resolveCaptured!: (v: { status: number; body: string }) => void;
+    const capturedReady = new Promise<{ status: number; body: string }>((resolve) => {
+      resolveCaptured = resolve;
+    });
 
-      // Read the body once as text so we can both parse JSON and, when the
-      // server rejects without a structured message, surface the raw response
-      // for the developer to diagnose (e.g. the thegaragedoorguys product-page).
-      const bodyText = await response.text().catch(() => '');
+    const handler = async (route: import('@playwright/test').Route) => {
+      const req = route.request();
+      if (req.method() !== 'POST') return route.continue();
+      try {
+        // Re-issue the (single) submission ourselves so we own the body read.
+        // Re-add the Cloudflare bypass header (this route pre-empts open()'s).
+        const resp = await route.fetch(
+          token ? { headers: { ...req.headers(), 'x-qa-bypass': token } } : undefined,
+        );
+        const body = (await resp.body()).toString('utf8');
+        // Resolve on the form-submission response (Elementor always includes
+        // `success`), ignoring any unrelated admin-ajax traffic. Resolving more
+        // than once is a no-op.
+        if (/"success"\s*:/.test(body)) {
+          resolveCaptured({ status: resp.status(), body });
+        }
+        await route.fulfill({ response: resp });
+      } catch {
+        await route.continue().catch(() => {});
+      }
+    };
+
+    await this.page.route('**/admin-ajax.php', handler);
+    let result: { status: number; body: string } | null = null;
+    try {
+      await this.page.locator(this.selectors.submit).first().click();
+      result = await Promise.race([
+        capturedReady,
+        this.page.waitForTimeout(timeout).then(() => null),
+      ]);
+    } catch {
+      /* click failed — fall through to banner/empty handling below */
+    } finally {
+      await this.page.unroute('**/admin-ajax.php', handler).catch(() => {});
+    }
+
+    if (result) {
+      const bodyText = result.body;
       let json: ElementorFormResponse | null = null;
       try {
         json = bodyText ? (JSON.parse(bodyText) as ElementorFormResponse) : null;
@@ -224,7 +260,6 @@ export class ContactPage extends BasePage {
       if (message) {
         return { outcome: 'error', message };
       }
-      // No structured message — attach the raw response body (truncated).
       const raw = bodyText.replace(/\s+/g, ' ').trim().slice(0, 500);
       return {
         outcome: 'error',
@@ -232,10 +267,10 @@ export class ContactPage extends BasePage {
           ? `Submission was rejected by the server — raw response: ${raw}`
           : 'Submission was rejected by the server (empty response).',
       };
-    } catch {
-      // No AJAX response — surface whatever banner the form rendered, if any.
-      return this.readBanner();
     }
+
+    // No admin-ajax response captured — surface whatever banner rendered.
+    return this.readBanner();
   }
 
   /** Read the on-page success/error banner as a fallback when no AJAX fired. */

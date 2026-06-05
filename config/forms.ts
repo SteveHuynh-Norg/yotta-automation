@@ -199,12 +199,11 @@ function elementorSelectors(formName: string): FormSelectors {
 
 /**
  * Hostnames temporarily skipped (still listed above for when they come back).
- * - thedoorman.com.au: still renders ZERO <form> elements on the logged-out
- *   frontend (verified fresh, cache-MISS) even after the dev's 2026-06-04 file-
- *   perms fix — the form widgets aren't in the anonymous HTML (Monday item
- *   2702399641). Keep skipped until a logged-out page actually renders the form.
+ * Empty — thedoorman.com.au was re-enabled after the dev's Varnish purge
+ * (2026-06-05, reply 111815973); its logged-out frontend now renders the
+ * "Contact Form" again. Add a host substring here to skip a site again.
  */
-const SKIP_HOST_SUBSTRINGS = ['thedoorman.com.au'];
+const SKIP_HOST_SUBSTRINGS: string[] = [];
 
 /** Turn an in-scope page row into a full FormConfig. */
 function buildElementorForm(page: ElementorFormPage): FormConfig {
