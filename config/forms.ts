@@ -205,6 +205,28 @@ function elementorSelectors(formName: string): FormSelectors {
  */
 const SKIP_HOST_SUBSTRINGS: string[] = [];
 
+/**
+ * Reason a form is marked skipped (test listed but not run), or undefined to run
+ * it. Elementor popup/library template URLs (`?elementor_library=…`) can't be
+ * automated directly: they redirect anonymous visitors to the homepage and the
+ * redirect chain drops the qa_token/qa_ts params, so the bypass never activates
+ * (dev-confirmed, no server-side fix — Monday item 2702399641, reply 111386947).
+ * These popup forms must instead be reached via their parent-page button (a
+ * separate enhancement). NOTE: this leaves noosagaragedoors + malsmithdoors with
+ * no coverage, as their only in-scope form is a popup template.
+ */
+function skipReasonFor(url: string): string | undefined {
+  try {
+    if (new URL(url).searchParams.has('elementor_library')) {
+      return 'Elementor popup/library template URL — redirect drops qa_token params; ' +
+        'cover via the parent-page popup button instead (not yet implemented).';
+    }
+  } catch {
+    /* fall through */
+  }
+  return undefined;
+}
+
 /** Turn an in-scope page row into a full FormConfig. */
 function buildElementorForm(page: ElementorFormPage): FormConfig {
   const host = new URL(page.url).hostname.replace(/^www\./, '');
@@ -214,6 +236,7 @@ function buildElementorForm(page: ElementorFormPage): FormConfig {
     pageURL: page.url,
     enabled: !SKIP_HOST_SUBSTRINGS.some((h) => page.url.includes(h)),
     usesRecaptchaBypass: true,
+    skip: skipReasonFor(page.url),
     selectors: elementorSelectors(page.formName),
   };
 }

@@ -27,6 +27,11 @@ for (const form of getActiveForms()) {
   // distinct as Playwright requires.
   test.describe(`[${form.key}] ${form.name}`, () => {
     test('submits successfully', { tag: '@forms' }, async ({ contactPage }) => {
+      // Some configured pages aren't automatable yet (e.g. popup/library
+      // template URLs that drop the bypass token on redirect) — list them but
+      // skip with the reason rather than fail the run.
+      test.skip(Boolean(form.skip), form.skip ?? '');
+
       // A unique inbox per form+run keeps submissions traceable and avoids
       // dedupe/collisions when forms run in parallel.
       const email = `qa-yotta-${form.key}-${Date.now()}@yopmail.com`;

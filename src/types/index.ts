@@ -106,6 +106,13 @@ export interface FormConfig {
    * (qa_token / qa_ts) to be appended before navigating.
    */
   usesRecaptchaBypass: boolean;
+  /**
+   * When set, the spec marks this form's test as skipped with this reason
+   * (still listed, not run) — for pages that are configured but not currently
+   * automatable (e.g. Elementor popup/library template URLs that redirect and
+   * drop the qa_token params).
+   */
+  skip?: string;
   /** Field selectors. */
   selectors: FormSelectors;
 }
