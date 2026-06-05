@@ -25,9 +25,9 @@ for (const form of getActiveForms()) {
   // `form.key` is unique per page; multiple pages can share a display name
   // (e.g. several "New Form" pages on one site), so the key keeps test titles
   // distinct as Playwright requires.
-  // Representative forms also carry @smoke so push/PR can run a fast subset
-  // (the full estate runs on schedule / manual dispatch).
-  const tags = form.smoke ? ['@forms', '@smoke'] : ['@forms'];
+  // BND Cloudflare-zone forms also carry @bnd so CI can exclude them
+  // (they reject the runner's datacenter IP; they pass locally).
+  const tags = form.cloudflareBnd ? ['@forms', '@bnd'] : ['@forms'];
   test.describe(`[${form.key}] ${form.name}`, () => {
     test('submits successfully', { tag: tags }, async ({ contactPage }) => {
       // Some configured pages aren't automatable yet (e.g. popup/library

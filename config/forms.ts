@@ -215,7 +215,7 @@ const SKIP_HOST_SUBSTRINGS: string[] = [];
  * separate enhancement). NOTE: this leaves noosagaragedoors + malsmithdoors with
  * no coverage, as their only in-scope form is a popup template.
  */
-function skipReasonFor(url: string): string | undefined {
+function skipReasonFor(url: string, key: string): string | undefined {
   try {
     if (new URL(url).searchParams.has('elementor_library')) {
       return 'Elementor popup/library template URL — redirect drops qa_token params; ' +
@@ -224,25 +224,31 @@ function skipReasonFor(url: string): string | undefined {
   } catch {
     /* fall through */
   }
-  return undefined;
+  return SKIP_KEYS.get(key);
 }
 
-/**
- * Representative forms for the fast push/PR "smoke" run — one per distinct
- * server behaviour so a regression in any path is caught quickly without
- * sweeping the whole estate:
- *   - ssdoors-contact-us            reCAPTCHA v2 (baseline)
- *   - 89s-contact-us                reCAPTCHA v3 (siteverify-action fix)
- *   - awgd-contact-us               v3 + grecaptcha shim / watchdog path
- *   - bndmornington-contact-us      Cloudflare BND zone + success redirect
- * The full estate runs on schedule / manual dispatch.
- */
-const SMOKE_KEYS = new Set([
-  'ssdoors-contact-us',
-  '89s-contact-us',
-  'awgd-contact-us',
-  'bndmornington-contact-us',
+/** Per-page skips for forms that aren't automatable for a page-specific reason. */
+const SKIP_KEYS = new Map<string, string>([
+  [
+    'bndmornington-speciality-doors',
+    'The "New Form" renders hidden on this page (its sibling pages render it ' +
+      'visible), so it is not interactable; the same form is covered by the ' +
+      'sibling pages.',
+  ],
 ]);
+
+/**
+ * Cloudflare BND zones that reject form submissions from datacenter IPs (e.g.
+ * GitHub Actions runners) while passing from a local/residential IP. Tagged so
+ * CI can exclude them; pending a dev-side allowlist (Monday item 2702399641,
+ * update 111841622). Remove a host here once that's fixed.
+ */
+const CLOUDFLARE_BND_HOSTS = [
+  'bndmornington.com.au',
+  'bndsoutheastmelbourne.com.au',
+  'bndgaragedoorsgippsland.com.au',
+  'bndgaragedoorsnewcastleandhunter.com.au',
+];
 
 /** Turn an in-scope page row into a full FormConfig. */
 function buildElementorForm(page: ElementorFormPage): FormConfig {
@@ -254,8 +260,8 @@ function buildElementorForm(page: ElementorFormPage): FormConfig {
     pageURL: page.url,
     enabled: !SKIP_HOST_SUBSTRINGS.some((h) => page.url.includes(h)),
     usesRecaptchaBypass: true,
-    skip: skipReasonFor(page.url),
-    smoke: SMOKE_KEYS.has(key),
+    skip: skipReasonFor(page.url, key),
+    cloudflareBnd: CLOUDFLARE_BND_HOSTS.some((h) => page.url.includes(h)),
     selectors: elementorSelectors(page.formName),
   };
 }

@@ -114,10 +114,11 @@ export interface FormConfig {
    */
   skip?: string;
   /**
-   * Part of the fast "smoke" subset run on push/PR (a handful of representative
-   * forms). The full estate runs on schedule / manual dispatch.
+   * Hosted on a Cloudflare BND zone that rejects submissions from datacenter
+   * IPs (tagged `@bnd` so CI can exclude them — they pass locally). Pending a
+   * dev-side allowlist; see Monday item 2702399641 (update 111841622).
    */
-  smoke?: boolean;
+  cloudflareBnd?: boolean;
   /** Field selectors. */
   selectors: FormSelectors;
 }

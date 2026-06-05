@@ -7,14 +7,15 @@ name: forms-submission
 # needs the reCAPTCHA bypass secret.
 #
 # Triggers:
-#   - push / pull_request that touch form-submission code → run the fast @smoke
-#     subset (a few representative forms) so changes to this suite are verified
+#   - push / pull_request that touch form-submission code → verify the suite
 #     here, NOT in the directory CI (which ignores these same paths)
 #   - schedule          → weekly full-estate health check
-#   - workflow_dispatch → manual run (full estate, or one form via `form`)
+#   - workflow_dispatch → manual run (or one form via `form`)
 #
-# Submissions are real, so push/PR runs only the small @smoke subset; the full
-# ~75-form sweep runs on schedule / manual dispatch.
+# Every run exercises the full estate serially, EXCLUDING the @bnd-tagged
+# Cloudflare zones — those reject the runner's datacenter IP (pending a dev-side
+# allowlist, Monday item 2702399641); they pass on a local run, which has no
+# such exclusion.
 on:
   push:
     branches: [main]
@@ -90,18 +91,12 @@ jobs:
           FORM: ${{ github.event.inputs.form }}
           # Posts the run summary to Slack (no-op when the secret is unset).
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          EVENT_NAME: ${{ github.event_name }}
-        # Serial + a single retry to bound runtime and avoid parallel rate
-        # flakiness. push/PR runs the fast @smoke subset; schedule / manual
-        # dispatch run the full @forms estate.
-        run: |
-          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "Running FULL form estate (@forms)"
-            npx playwright test --grep @forms --workers=1 --retries=1
-          else
-            echo "Running @smoke subset (push/PR)"
-            npx playwright test --grep @smoke --workers=1 --retries=1
-          fi
+        # Full estate, serial (--workers=1) with one retry to avoid the
+        # rate-related flakiness the estate shows under parallel load. Exclude
+        # @bnd: the Cloudflare BND zones reject this runner's datacenter IP
+        # (they pass locally). Drop `--grep-invert @bnd` once the dev allowlists
+        # the runner (Monday item 2702399641).
+        run: npx playwright test --grep @forms --grep-invert @bnd --workers=1 --retries=1
 
       - name: Upload Playwright HTML report
         if: ${{ !cancelled() }}
