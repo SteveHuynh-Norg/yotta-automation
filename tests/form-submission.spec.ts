@@ -25,8 +25,11 @@ for (const form of getActiveForms()) {
   // `form.key` is unique per page; multiple pages can share a display name
   // (e.g. several "New Form" pages on one site), so the key keeps test titles
   // distinct as Playwright requires.
+  // Representative forms also carry @smoke so push/PR can run a fast subset
+  // (the full estate runs on schedule / manual dispatch).
+  const tags = form.smoke ? ['@forms', '@smoke'] : ['@forms'];
   test.describe(`[${form.key}] ${form.name}`, () => {
-    test('submits successfully', { tag: '@forms' }, async ({ contactPage }) => {
+    test('submits successfully', { tag: tags }, async ({ contactPage }) => {
       // Some configured pages aren't automatable yet (e.g. popup/library
       // template URLs that drop the bypass token on redirect) — list them but
       // skip with the reason rather than fail the run.

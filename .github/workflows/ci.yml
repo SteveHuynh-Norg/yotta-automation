@@ -9,8 +9,21 @@ name: CI
 on:
   push:
     branches: [main]
+    # Form-submission-only changes are verified by the `forms-submission`
+    # workflow, not here. (Shared files — fixtures, playwright.config, types,
+    # package*, BasePage — are intentionally NOT ignored, so they still run CI.)
+    paths-ignore:
+      - 'tests/form-submission.spec.ts'
+      - 'config/forms.ts'
+      - 'src/pages/ContactPage.ts'
+      - 'src/utils/qaBypass.ts'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'tests/form-submission.spec.ts'
+      - 'config/forms.ts'
+      - 'src/pages/ContactPage.ts'
+      - 'src/utils/qaBypass.ts'
   schedule:
     # Mon / Wed / Fri at 07:00 ICT (GMT+7) == 00:00 UTC.
     # cron is UTC; day-of-week 1=Mon, 3=Wed, 5=Fri.

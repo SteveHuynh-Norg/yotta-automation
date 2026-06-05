@@ -227,16 +227,35 @@ function skipReasonFor(url: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Representative forms for the fast push/PR "smoke" run — one per distinct
+ * server behaviour so a regression in any path is caught quickly without
+ * sweeping the whole estate:
+ *   - ssdoors-contact-us            reCAPTCHA v2 (baseline)
+ *   - 89s-contact-us                reCAPTCHA v3 (siteverify-action fix)
+ *   - awgd-contact-us               v3 + grecaptcha shim / watchdog path
+ *   - bndmornington-contact-us      Cloudflare BND zone + success redirect
+ * The full estate runs on schedule / manual dispatch.
+ */
+const SMOKE_KEYS = new Set([
+  'ssdoors-contact-us',
+  '89s-contact-us',
+  'awgd-contact-us',
+  'bndmornington-contact-us',
+]);
+
 /** Turn an in-scope page row into a full FormConfig. */
 function buildElementorForm(page: ElementorFormPage): FormConfig {
   const host = new URL(page.url).hostname.replace(/^www\./, '');
+  const key = keyForPage(page.url);
   return {
-    key: keyForPage(page.url),
+    key,
     name: `${host} — ${page.formName}`,
     pageURL: page.url,
     enabled: !SKIP_HOST_SUBSTRINGS.some((h) => page.url.includes(h)),
     usesRecaptchaBypass: true,
     skip: skipReasonFor(page.url),
+    smoke: SMOKE_KEYS.has(key),
     selectors: elementorSelectors(page.formName),
   };
 }

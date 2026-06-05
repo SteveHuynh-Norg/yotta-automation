@@ -113,6 +113,11 @@ export interface FormConfig {
    * drop the qa_token params).
    */
   skip?: string;
+  /**
+   * Part of the fast "smoke" subset run on push/PR (a handful of representative
+   * forms). The full estate runs on schedule / manual dispatch.
+   */
+  smoke?: boolean;
   /** Field selectors. */
   selectors: FormSelectors;
 }
