@@ -119,6 +119,12 @@ export interface FormConfig {
    * dev-side allowlist; see Monday item 2702399641 (update 111841622).
    */
   cloudflareBnd?: boolean;
+  /**
+   * For a form that lives in an Elementor popup (hidden until triggered): the
+   * popup's Elementor id. `open()` reveals it via the Pro frontend API before
+   * filling — the on-page trigger links are often hidden in collapsed nav.
+   */
+  openPopupId?: number;
   /** Field selectors. */
   selectors: FormSelectors;
 }

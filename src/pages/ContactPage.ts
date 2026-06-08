@@ -31,6 +31,12 @@ export class ContactPage extends BasePage {
     this.selectors = form.selectors;
     await this.applyBypassHeader(url);
     await this.goto(url);
+
+    // If the form lives in an Elementor popup, open it (it's hidden until then).
+    if (form.openPopupId !== undefined) {
+      await this.openElementorPopup(form.openPopupId);
+    }
+
     // A page may host more than one Elementor form; scope to the target by name
     // (selectors.form already does) and take the first match defensively.
     await expect(this.form.first(), 'contact form not found on page').toBeVisible();
@@ -79,6 +85,52 @@ export class ContactPage extends BasePage {
       (route) =>
         route.continue({ headers: { ...route.request().headers(), 'x-qa-bypass': token } }),
     );
+  }
+
+  /**
+   * Reveal an Elementor Pro popup by id via the frontend API, then wait for the
+   * target form to become visible. We use the API rather than clicking a trigger
+   * because the trigger links are often hidden (collapsed nav), and the
+   * `?elementor_library=` template URL drops the qa_token on its redirect.
+   */
+  private async openElementorPopup(popupId: number): Promise<void> {
+    // Wait for the Pro popup API. Note Elementor detaches popup content from the
+    // DOM after init and re-attaches it on showPopup, so the form may be absent
+    // until we open it.
+    await this.page
+      .waitForFunction(
+        () =>
+          Boolean(
+            (window as unknown as {
+              elementorProFrontend?: { modules?: { popup?: { showPopup?: unknown } } };
+            }).elementorProFrontend?.modules?.popup?.showPopup,
+          ),
+        { timeout: 15_000 },
+      )
+      .catch(() => {
+        /* Pro frontend not ready — the visibility assertion will surface it */
+      });
+
+    // showPopup is a no-op until the popup is registered, so retry until the
+    // form actually appears (re-issuing the open each attempt).
+    const target = this.form.first();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await this.page
+        .evaluate((id) => {
+          (window as unknown as {
+            elementorProFrontend?: {
+              modules?: { popup?: { showPopup?: (a: { id: number }) => void } };
+            };
+          }).elementorProFrontend?.modules?.popup?.showPopup?.({ id });
+        }, popupId)
+        .catch(() => {});
+      try {
+        await target.waitFor({ state: 'visible', timeout: 3_000 });
+        return;
+      } catch {
+        /* not open yet — retry */
+      }
+    }
   }
 
   private get form(): Locator {

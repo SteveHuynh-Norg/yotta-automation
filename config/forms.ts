@@ -31,6 +31,13 @@ interface ElementorFormPage {
   url: string;
   /** The Elementor form's editor name (rendered as the form's `name` attribute). */
   formName: string;
+  /**
+   * If the form lives in an Elementor popup on `url` (hidden until triggered),
+   * the popup's Elementor id — `ContactPage.open()` opens it via the frontend
+   * API. Use this instead of a `?elementor_library=` template URL (those drop
+   * the qa_token on redirect).
+   */
+  openPopupId?: number;
 }
 
 /**
@@ -125,8 +132,9 @@ const FORM_PAGES: ElementorFormPage[] = [
   // malsmithdoors.com.au (1 — only the Elementor reCAPTCHA form; the rest are Gravity / no-reCAPTCHA)
   { url: 'https://malsmithdoors.com.au/?elementor_library=contact-form-simple', formName: 'Contact Form' },
 
-  // noosagaragedoors.com.au (1)
-  { url: 'https://noosagaragedoors.com.au/?elementor_library=quote-popup', formName: 'Quote Form' },
+  // noosagaragedoors.com.au (1) — Quote Form lives in a popup on the homepage
+  // (popup id 1167); opened via the Elementor API rather than the template URL.
+  { url: 'https://noosagaragedoors.com.au/', formName: 'Quote Form', openPopupId: 1167 },
 
   // ssdoors.com.au (3)
   { url: 'https://ssdoors.com.au/?elementor_library=quote-v2', formName: 'Quote Form' },
@@ -262,6 +270,7 @@ function buildElementorForm(page: ElementorFormPage): FormConfig {
     usesRecaptchaBypass: true,
     skip: skipReasonFor(page.url, key),
     cloudflareBnd: CLOUDFLARE_BND_HOSTS.some((h) => page.url.includes(h)),
+    openPopupId: page.openPopupId,
     selectors: elementorSelectors(page.formName),
   };
 }

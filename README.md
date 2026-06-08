@@ -181,8 +181,12 @@ because it sends real, self-identified submissions.
 
 ### Adding a new form
 
-Append a `FormConfig` to `FORMS` in `config/forms.ts` — set `pageURL`, the field
-`selectors`, and `usesRecaptchaBypass`. No test code changes required.
+Append a row to `FORM_PAGES` in `config/forms.ts` (`url` + Elementor `formName`).
+No test code changes required. For a form that lives in an **Elementor popup**
+(hidden until triggered), set `openPopupId` to the popup's Elementor id and point
+`url` at a real page that hosts it (e.g. the homepage) — `ContactPage.open()`
+opens the popup via the Pro frontend API. Don't use the `?elementor_library=`
+template URL: it redirects and drops the `qa_token`.
 
 ## Adding a new site
 
