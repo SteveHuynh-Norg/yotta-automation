@@ -91,12 +91,23 @@ jobs:
           FORM: ${{ github.event.inputs.form }}
           # Posts the run summary to Slack (no-op when the secret is unset).
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        # Full estate, serial (--workers=1) with one retry to avoid the
+        # Default: full estate, serial (--workers=1), one retry to absorb the
         # rate-related flakiness the estate shows under parallel load. Exclude
-        # @bnd: the Cloudflare BND zones reject this runner's datacenter IP
-        # (they pass locally). Drop `--grep-invert @bnd` once the dev allowlists
-        # the runner (Monday item 2702399641).
-        run: npx playwright test --grep @forms --grep-invert @bnd --workers=1 --retries=1
+        # @bnd: the Cloudflare BND zones reject this runner's datacenter IP (they
+        # pass locally). Drop `--grep-invert @bnd` once the dev allowlists the
+        # runner (Monday item 2702399641).
+        #
+        # When a `form` is given on a manual dispatch, run just that one form
+        # INCLUDING @bnd, single attempt (--retries=0) — e.g. to fire exactly one
+        # CI POST at a BND zone for the dev's diagnostics. (FORM already narrows
+        # the suite to that key, so no @bnd exclusion is needed.)
+        run: |
+          if [ -n "${FORM:-}" ]; then
+            echo "Targeted single-form run: $FORM (incl. @bnd; one attempt)"
+            npx playwright test --grep @forms --workers=1 --retries=0
+          else
+            npx playwright test --grep @forms --grep-invert @bnd --workers=1 --retries=1
+          fi
 
       - name: Upload Playwright HTML report
         if: ${{ !cancelled() }}
