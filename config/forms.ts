@@ -246,16 +246,18 @@ const SKIP_KEYS = new Map<string, string>([
 ]);
 
 /**
- * Cloudflare BND zones that reject form submissions from datacenter IPs (e.g.
- * GitHub Actions runners) while passing from a local/residential IP. Tagged so
- * CI can exclude them; pending a dev-side allowlist (Monday item 2702399641,
- * update 111841622). Remove a host here once that's fixed.
+ * Cloudflare BND zones that block the GitHub-runner datacenter IP at the CF
+ * edge (they pass from a local/residential IP). Tagged `@bnd` so CI excludes
+ * them. Remove a host here once the dev clears its edge block (item 2702399641).
+ *
+ * 2026-06-16: bndmornington + bndgaragedoorsnewcastleandhunter cleared (Bot
+ * Fight Mode off) and verified passing from CI, so they're re-enabled (removed
+ * from this list). bndsoutheastmelbourne + bndgaragedoorsgippsland still block
+ * the page GET at the edge from the runner IP — kept excluded pending dev fix.
  */
 const CLOUDFLARE_BND_HOSTS = [
-  'bndmornington.com.au',
   'bndsoutheastmelbourne.com.au',
   'bndgaragedoorsgippsland.com.au',
-  'bndgaragedoorsnewcastleandhunter.com.au',
 ];
 
 /** Turn an in-scope page row into a full FormConfig. */

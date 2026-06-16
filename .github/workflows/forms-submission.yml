@@ -80,6 +80,14 @@ jobs:
       - name: Install Playwright browser (Chromium)
         run: npx playwright install --with-deps chromium
 
+      # Logs the runner's public egress IP + UTC time so the dev can correlate a
+      # run against Cloudflare Security Events (the runner IP rotates per run and
+      # isn't otherwise exposed). Diagnostic aid for the BND edge-block issue.
+      - name: Print runner public IP
+        run: |
+          echo "Runner public IP: $(curl -s --max-time 10 https://api.ipify.org || echo unknown)"
+          echo "UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
       - name: Run form-submission test
         env:
           # Shared HMAC secret for the reCAPTCHA QA bypass (from qa-bypass-url.sh).
