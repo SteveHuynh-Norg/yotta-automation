@@ -246,19 +246,17 @@ const SKIP_KEYS = new Map<string, string>([
 ]);
 
 /**
- * Cloudflare BND zones that block the GitHub-runner datacenter IP at the CF
- * edge (they pass from a local/residential IP). Tagged `@bnd` so CI excludes
- * them. Remove a host here once the dev clears its edge block (item 2702399641).
+ * Hosts to exclude from CI via the `@bnd` tag because the GitHub-runner
+ * datacenter IP is challenged at the CF edge (they pass from a local IP).
+ * Add a host here if a zone regresses; CI then skips it via `--grep-invert @bnd`.
  *
- * 2026-06-16: bndmornington + bndgaragedoorsnewcastleandhunter cleared (Bot
- * Fight Mode off) and verified passing from CI, so they're re-enabled (removed
- * from this list). bndsoutheastmelbourne + bndgaragedoorsgippsland still block
- * the page GET at the edge from the runner IP — kept excluded pending dev fix.
+ * Empty as of 2026-06-17: the dev's bypass v2.6 removed the 30/hr/IP rate limit
+ * for valid tokens and extended the X-QA-Bypass WAF Skip targets to clear the
+ * page GET on all CI-scope zones — so all 4 former BND zones (mornington,
+ * southeastmelbourne, gippsland, newcastleandhunter) now run in CI again
+ * (Monday item 2702399641, update 114010225).
  */
-const CLOUDFLARE_BND_HOSTS = [
-  'bndsoutheastmelbourne.com.au',
-  'bndgaragedoorsgippsland.com.au',
-];
+const CLOUDFLARE_BND_HOSTS: string[] = [];
 
 /** Turn an in-scope page row into a full FormConfig. */
 function buildElementorForm(page: ElementorFormPage): FormConfig {
