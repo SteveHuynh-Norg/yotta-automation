@@ -29,7 +29,7 @@ export class ContactPage extends BasePage {
   /** Bind this object to a form's selectors and navigate to `url`. */
   async open(form: FormConfig, url: string): Promise<void> {
     this.selectors = form.selectors;
-    await this.applyBypassHeader(url);
+    await this.applyBypassHeader();
     await this.goto(url);
 
     // If the form lives in an Elementor popup, open it (it's hidden until then).
@@ -59,32 +59,23 @@ export class ContactPage extends BasePage {
   }
 
   /**
-   * Add the `X-QA-Bypass` header (Cloudflare Bot Fight Mode allowlist for the
-   * BND zones) to FIRST-PARTY requests only — i.e. requests to the form page's
-   * own host (the document, its assets, and admin-ajax). Sending it cross-origin
-   * (e.g. to Google's reCAPTCHA script) trips a CORS preflight rejection, so we
-   * scope it by host. No-op when QA_BYPASS_HEADER is unset.
+   * Add the `X-QA-Bypass` header (the Cloudflare WAF allowlist token that clears
+   * the edge challenge on flagged runner IPs) to the page's requests — including
+   * the navigation GET, which is where a flagged IP gets challenged.
+   *
+   * Uses context.setExtraHTTPHeaders rather than a `page.route` that rewrites
+   * headers: `route.continue({ headers })` does NOT reliably attach the header
+   * to the main navigation request (verified against httpbin), which silently
+   * left the GET un-tokenised and let flagged IPs be challenged estate-wide.
+   * This is context-wide so it also rides cross-origin requests (e.g. Google's
+   * reCAPTCHA script) — harmless background CORS noise; we bypass reCAPTCHA
+   * anyway. Scoped to this page object, so only the form-submission suite sends
+   * it. No-op when QA_BYPASS_HEADER is unset.
    */
-  private async applyBypassHeader(url: string): Promise<void> {
+  private async applyBypassHeader(): Promise<void> {
     const token = process.env.QA_BYPASS_HEADER;
     if (!token) return;
-    let host: string;
-    try {
-      host = new URL(url).hostname;
-    } catch {
-      return;
-    }
-    await this.page.route(
-      (reqUrl) => {
-        try {
-          return new URL(reqUrl).hostname === host;
-        } catch {
-          return false;
-        }
-      },
-      (route) =>
-        route.continue({ headers: { ...route.request().headers(), 'x-qa-bypass': token } }),
-    );
+    await this.page.context().setExtraHTTPHeaders({ 'X-QA-Bypass': token });
   }
 
   /**
