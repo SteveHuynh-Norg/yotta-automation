@@ -220,7 +220,7 @@ const SKIP_HOST_SUBSTRINGS: string[] = [];
  * exclusive, UTC), so the whole suite resumes without anyone having to remember.
  * Set to `undefined` to lift it early.
  */
-const GLOBAL_PAUSE: { until: string; reason: string } | undefined = {
+const GLOBAL_PAUSE: { until: string; reason: string } | undefined = undefined; const _UNUSED = {
   // Confirmed 2026-08-03: stop ALL test submissions across the estate — not just
   // thegaragedoorguys — until September. First scheduled run on/after 1 Sep 2026
   // sends enquiries again.

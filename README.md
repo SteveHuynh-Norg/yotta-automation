@@ -188,17 +188,28 @@ No test code changes required. For a form that lives in an **Elementor popup**
 opens the popup via the Pro frontend API. Don't use the `?elementor_library=`
 template URL: it redirects and drops the `qa_token`.
 
-### Pausing a site at the client's request
+### Pausing submissions at the client's request
 
-Add a row to `PAUSED_HOSTS` in `config/forms.ts` (`host`, `until`, `reason`).
-Every form on that host is still listed but reported as **skipped** with the
-reason until `until` (exclusive, UTC), so nothing is opened and no enquiry is
-sent — and the site resumes by itself once the date passes, no follow-up edit
-needed. Currently paused:
+> **⏸ All form submissions are paused until 2026-09-01.** Confirmed 2026-08-03:
+> no test enquiries are sent to **any** site until September. Every form is still
+> listed and reported as **skipped** with that reason, so the suite (and its CI
+> schedule) keeps running green without emailing anyone. Nothing needs doing on
+> 1 Sep — the pause expires by date and the next scheduled run submits again.
 
-| Host | Paused until | Reason |
+Two levels of pause live in `config/forms.ts`, both by date (`until`, exclusive,
+UTC) so they lift themselves:
+
+- **Whole estate** — `GLOBAL_PAUSE` (`until`, `reason`). Set it to `undefined`
+  to lift the pause early.
+- **One host** — a row in `PAUSED_HOSTS` (`host`, `until`, `reason`).
+
+A paused form is never opened and no enquiry is sent; the pause outranks every
+other skip reason so the report names it as the cause. Currently paused:
+
+| Scope | Paused until | Reason |
 | --- | --- | --- |
-| `thegaragedoorguys.com.au` | 2026-09-01 | Client asked to pause test submissions for August 2026 |
+| **All forms** (`GLOBAL_PAUSE`) | 2026-09-01 | Client confirmed all test submissions are on hold until September 2026 |
+| `thegaragedoorguys.com.au` | 2026-09-01 | Client asked to pause test submissions for August 2026 (kept so lifting the global pause early doesn't resume this host) |
 
 ## Adding a new site
 
