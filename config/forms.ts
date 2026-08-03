@@ -214,6 +214,35 @@ function elementorSelectors(formName: string): FormSelectors {
 const SKIP_HOST_SUBSTRINGS: string[] = [];
 
 /**
+ * Client-requested pause windows. While a window is open, every form on that
+ * host is still listed but reported as skipped — no page is opened and no
+ * enquiry is sent. Each entry expires on its own (`until`, exclusive, UTC), so
+ * the site resumes automatically without anyone having to remember; delete the
+ * row on the next tidy-up once it has lapsed.
+ */
+const PAUSED_HOSTS: { host: string; until: string; reason: string }[] = [
+  {
+    host: 'thegaragedoorguys.com.au',
+    // Client asked (2026-08-03) not to receive test submissions during August;
+    // resumes with the first scheduled run on/after 1 Sep 2026.
+    until: '2026-09-01',
+    reason: 'client asked to pause test submissions for August 2026',
+  },
+];
+
+/** Pause reason for a page, if one of the `PAUSED_HOSTS` windows is still open. */
+function pauseReasonFor(url: string): string | undefined {
+  const now = Date.now();
+  for (const p of PAUSED_HOSTS) {
+    if (!url.includes(p.host)) continue;
+    if (now < Date.parse(`${p.until}T00:00:00Z`)) {
+      return `Paused until ${p.until} — ${p.reason}.`;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Reason a form is marked skipped (test listed but not run), or undefined to run
  * it. Elementor popup/library template URLs (`?elementor_library=…`) can't be
  * automated directly: they redirect anonymous visitors to the homepage and the
@@ -224,6 +253,10 @@ const SKIP_HOST_SUBSTRINGS: string[] = [];
  * no coverage, as their only in-scope form is a popup template.
  */
 function skipReasonFor(url: string, key: string): string | undefined {
+  // A client pause outranks every other reason — report it as the cause.
+  const paused = pauseReasonFor(url);
+  if (paused) return paused;
+
   try {
     if (new URL(url).searchParams.has('elementor_library')) {
       return 'Elementor popup/library template URL — redirect drops qa_token params; ' +
