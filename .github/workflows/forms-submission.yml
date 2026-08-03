@@ -42,7 +42,12 @@ on:
       - 'playwright.config.ts'
       - '.github/workflows/forms-submission.yml'
   schedule:
-    # Mondays at 07:30 ICT (GMT+7) == 00:30 UTC.
+    # Target: the FIRST MONDAY of each month at 07:30 ICT (GMT+7) == 00:30 UTC.
+    #
+    # cron cannot express "first Monday": when both day-of-month and day-of-week
+    # are restricted, cron ORs them, so '30 0 1-7 * 1' would fire on days 1-7
+    # AND on every Monday. Instead we wake every Monday and let the `gate` job
+    # below drop the run unless the date is 1-7 (i.e. the month's first Monday).
     - cron: '30 0 * * 1'
   workflow_dispatch:
     inputs:
@@ -57,8 +62,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Turns the weekly-Monday cron into "first Monday of the month" (see the
+  # `schedule` note above for why cron alone can't). Only gates scheduled runs —
+  # push / PR / manual dispatch always proceed.
+  gate:
+    name: First-Monday-of-month check
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" != 'schedule' ]; then
+            echo 'Not a scheduled run — proceeding.'
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The cron fires at 00:30 UTC, so the UTC date is the same calendar day
+          # as 07:30 ICT — no timezone correction needed. A Monday falling on the
+          # 1st-7th is by definition the month's first Monday.
+          dom=$(date -u +%-d)
+          dow=$(date -u +%u)
+          if [ "$dow" = '1' ] && [ "$dom" -le 7 ]; then
+            echo "$(date -u +%Y-%m-%d) is the first Monday of the month — running."
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "$(date -u +%Y-%m-%d) is not the first Monday of the month — skipping."
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          fi
+
   submit:
     name: Verify contact form submission
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     # Forms run serially (--workers=1) to avoid the rate-related flakiness the
     # estate shows under parallel load; the full sweep is ~75 forms, so allow

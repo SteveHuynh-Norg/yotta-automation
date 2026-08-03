@@ -171,7 +171,7 @@ This suite has its **own** pipeline, **`.github/workflows/forms-submission.yml`*
 |---|---|
 | `push` / `pull_request` | Changes touching the form-submission code paths (the directory `ci.yml` ignores those same paths, so form changes are verified here, not there) |
 | `workflow_dispatch` | Manual run; optional `form` input |
-| `schedule` | **Mondays 07:30 ICT (GMT+7)** — `cron: '30 0 * * 1'` (00:30 UTC) |
+| `schedule` | **First Monday of each month, 07:30 ICT (GMT+7)** (00:30 UTC). cron can't express "first Monday" — it ORs day-of-month with day-of-week — so `cron: '30 0 * * 1'` wakes every Monday and the `gate` job drops the run unless the date is 1–7. Only scheduled runs are gated; push / PR / manual dispatch always run. |
 
 Runs the full estate **serially** (`--workers=1`; the estate is flaky under
 parallel load) and **excludes the `@bnd`-tagged Cloudflare zones**, which reject
@@ -192,9 +192,10 @@ template URL: it redirects and drops the `qa_token`.
 
 > **⏸ All form submissions are paused until 2026-09-01.** Confirmed 2026-08-03:
 > no test enquiries are sent to **any** site until September. Every form is still
-> listed and reported as **skipped** with that reason, so the suite (and its CI
-> schedule) keeps running green without emailing anyone. Nothing needs doing on
-> 1 Sep — the pause expires by date and the next scheduled run submits again.
+> listed and reported as **skipped** with that reason, so the suite keeps running
+> green without emailing anyone. Nothing needs doing on 1 Sep — the pause expires
+> by date, so the first scheduled run after it (**Mon 7 Sep 2026**, the first
+> Monday of the month) submits again.
 
 Two levels of pause live in `config/forms.ts`, both by date (`until`, exclusive,
 UTC) so they lift themselves:
