@@ -259,6 +259,14 @@ const PAUSED_HOSTS: { host: string; until?: string; reason: string }[] = [
     host: 'bndsoutheastmelbourne.com.au',
     reason: 'client asked to hold BND test submissions (no end date given)',
   },
+  // Held again at the client's request (2026-09-03), this time with no end date:
+  // the Aug-2026 dated row lifted itself on 2026-09-01 and the client asked to
+  // stop the test enquiries for good rather than for another month. Resumes only
+  // when this row is deleted.
+  {
+    host: 'thegaragedoorguys.com.au',
+    reason: 'client asked to hold test submissions (no end date given)',
+  },
 ];
 
 /**
