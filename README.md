@@ -190,12 +190,13 @@ template URL: it redirects and drops the `qa_token`.
 
 ### Pausing submissions at the client's request
 
-> **⏸ The four BND zones are held indefinitely; every other site runs normally.**
-> Confirmed 2026-09-03: no test enquiries go to `bndgaragedoorsgippsland`,
-> `bndgaragedoorsnewcastleandhunter`, `bndmornington` or `bndsoutheastmelbourne`
-> until someone lifts the hold. The Aug-2026 estate-wide pause lapsed by date on
-> 2026-09-01, so the rest of the estate submits again from the next scheduled run
-> (**Mon 7 Sep 2026**, the first Monday of the month).
+> **⏸ The four BND zones and `thegaragedoorguys.com.au` are held indefinitely;
+> every other site runs normally.** Confirmed 2026-09-03: no test enquiries go to
+> `bndgaragedoorsgippsland`, `bndgaragedoorsnewcastleandhunter`, `bndmornington`,
+> `bndsoutheastmelbourne` or `thegaragedoorguys.com.au` until someone lifts the
+> hold. The Aug-2026 estate-wide pause lapsed by date on 2026-09-01, so the rest
+> of the estate submits again from the next scheduled run (**Mon 7 Sep 2026**, the
+> first Monday of the month).
 
 Two levels of pause live in `config/forms.ts`:
 
@@ -216,8 +217,9 @@ via `--grep-invert @bnd` and still submits on a local run. Currently paused:
 | `bndgaragedoorsnewcastleandhunter.com.au` | *indefinite* | Client asked to hold BND test submissions (no end date given) |
 | `bndmornington.com.au` | *indefinite* | Client asked to hold BND test submissions (no end date given) |
 | `bndsoutheastmelbourne.com.au` | *indefinite* | Client asked to hold BND test submissions (no end date given) |
+| `thegaragedoorguys.com.au` | *indefinite* | Client asked to hold test submissions (no end date given) |
 
-To resume BND, delete its rows from `PAUSED_HOSTS`.
+To resume a host, delete its row(s) from `PAUSED_HOSTS`.
 
 ## Adding a new site
 
