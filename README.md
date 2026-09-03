@@ -190,27 +190,34 @@ template URL: it redirects and drops the `qa_token`.
 
 ### Pausing submissions at the client's request
 
-> **⏸ All form submissions are paused until 2026-09-01.** Confirmed 2026-08-03:
-> no test enquiries are sent to **any** site until September. Every form is still
-> listed and reported as **skipped** with that reason, so the suite keeps running
-> green without emailing anyone. Nothing needs doing on 1 Sep — the pause expires
-> by date, so the first scheduled run after it (**Mon 7 Sep 2026**, the first
-> Monday of the month) submits again.
+> **⏸ The four BND zones are held indefinitely; every other site runs normally.**
+> Confirmed 2026-09-03: no test enquiries go to `bndgaragedoorsgippsland`,
+> `bndgaragedoorsnewcastleandhunter`, `bndmornington` or `bndsoutheastmelbourne`
+> until someone lifts the hold. The Aug-2026 estate-wide pause lapsed by date on
+> 2026-09-01, so the rest of the estate submits again from the next scheduled run
+> (**Mon 7 Sep 2026**, the first Monday of the month).
 
-Two levels of pause live in `config/forms.ts`, both by date (`until`, exclusive,
-UTC) so they lift themselves:
+Two levels of pause live in `config/forms.ts`:
 
-- **Whole estate** — `GLOBAL_PAUSE` (`until`, `reason`). Set it to `undefined`
-  to lift the pause early.
-- **One host** — a row in `PAUSED_HOSTS` (`host`, `until`, `reason`).
+- **Whole estate** — `GLOBAL_PAUSE` (`until`, `reason`), dated only. Currently
+  `undefined`; set it to lift/apply an estate-wide hold.
+- **One host** — a row in `PAUSED_HOSTS` (`host`, `reason`, and an *optional*
+  `until`). With `until` the row lifts itself on that date (exclusive, UTC);
+  without it the hold is open-ended and lasts until the row is deleted.
 
 A paused form is never opened and no enquiry is sent; the pause outranks every
-other skip reason so the report names it as the cause. Currently paused:
+other skip reason so the report names it as the cause. Note this is stronger
+than the `@bnd` tag (`CLOUDFLARE_BND_HOSTS`), which only drops a zone from CI
+via `--grep-invert @bnd` and still submits on a local run. Currently paused:
 
 | Scope | Paused until | Reason |
 | --- | --- | --- |
-| **All forms** (`GLOBAL_PAUSE`) | 2026-09-01 | Client confirmed all test submissions are on hold until September 2026 |
-| `thegaragedoorguys.com.au` | 2026-09-01 | Client asked to pause test submissions for August 2026 (kept so lifting the global pause early doesn't resume this host) |
+| `bndgaragedoorsgippsland.com.au` | *indefinite* | Client asked to hold BND test submissions (no end date given) |
+| `bndgaragedoorsnewcastleandhunter.com.au` | *indefinite* | Client asked to hold BND test submissions (no end date given) |
+| `bndmornington.com.au` | *indefinite* | Client asked to hold BND test submissions (no end date given) |
+| `bndsoutheastmelbourne.com.au` | *indefinite* | Client asked to hold BND test submissions (no end date given) |
+
+To resume BND, delete its rows from `PAUSED_HOSTS`.
 
 ## Adding a new site
 

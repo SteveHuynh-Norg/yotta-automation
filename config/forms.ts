@@ -216,38 +216,57 @@ const SKIP_HOST_SUBSTRINGS: string[] = [];
 /**
  * Estate-wide pause on form submissions. While this window is open EVERY form is
  * still listed but reported as skipped — no page is opened and no enquiry is sent
- * anywhere. Like the per-host windows below it expires on its own (`until`,
- * exclusive, UTC), so the whole suite resumes without anyone having to remember.
- * Set to `undefined` to lift it early.
+ * anywhere. It expires on its own (`until`, exclusive, UTC), so the whole suite
+ * resumes without anyone having to remember; set it back to `undefined` to lift
+ * an active pause early.
+ *
+ * Currently `undefined`: the Aug-2026 estate-wide hold lapsed on 2026-09-01 as
+ * designed, and the client asked (2026-09-03) to keep every site running on the
+ * normal schedule — only the BND zones stay held, via `PAUSED_HOSTS` below.
  */
-const GLOBAL_PAUSE: { until: string; reason: string } | undefined = {
-  // Confirmed 2026-08-03: stop ALL test submissions across the estate — not just
-  // thegaragedoorguys — until September. First scheduled run on/after 1 Sep 2026
-  // sends enquiries again.
-  until: '2026-09-01',
-  reason: 'client confirmed all test submissions are on hold until September 2026',
-};
+const GLOBAL_PAUSE: { until: string; reason: string } | undefined = undefined;
 
 /**
  * Client-requested pause windows for individual hosts. Same semantics as
- * `GLOBAL_PAUSE`, scoped to one host. Kept alongside the estate-wide pause so a
- * site-specific request survives the global window being lifted early; delete a
- * row on the next tidy-up once it has lapsed.
+ * `GLOBAL_PAUSE`, scoped to one host: the form is still listed but reported as
+ * skipped, and no enquiry is sent.
+ *
+ * `until` is optional. A row WITH a date lifts itself on that date (exclusive,
+ * UTC); a row WITHOUT one is an open-ended hold that stays in force until
+ * somebody deletes it. Delete a lapsed dated row on the next tidy-up.
  */
-const PAUSED_HOSTS: { host: string; until: string; reason: string }[] = [
+const PAUSED_HOSTS: { host: string; until?: string; reason: string }[] = [
+  // The four BND zones, held indefinitely at the client's request (2026-09-03):
+  // stop test enquiries to BND while every other site keeps running on the normal
+  // schedule. No `until` — these resume only when these rows are deleted.
+  //
+  // This is deliberately NOT the `@bnd` / CLOUDFLARE_BND_HOSTS tag below: that
+  // one only drops the zone from CI (`--grep-invert @bnd`) and still submits on a
+  // local run. A pause stops the submission everywhere.
   {
-    host: 'thegaragedoorguys.com.au',
-    // Client asked (2026-08-03) not to receive test submissions during August;
-    // resumes with the first scheduled run on/after 1 Sep 2026. Currently
-    // subsumed by GLOBAL_PAUSE — kept so lifting that early doesn't resume
-    // this host by accident.
-    until: '2026-09-01',
-    reason: 'client asked to pause test submissions for August 2026',
+    host: 'bndgaragedoorsgippsland.com.au',
+    reason: 'client asked to hold BND test submissions (no end date given)',
+  },
+  {
+    host: 'bndgaragedoorsnewcastleandhunter.com.au',
+    reason: 'client asked to hold BND test submissions (no end date given)',
+  },
+  {
+    host: 'bndmornington.com.au',
+    reason: 'client asked to hold BND test submissions (no end date given)',
+  },
+  {
+    host: 'bndsoutheastmelbourne.com.au',
+    reason: 'client asked to hold BND test submissions (no end date given)',
   },
 ];
 
-/** True while `until` (exclusive, UTC midnight) is still in the future. */
-function pauseIsOpen(until: string): boolean {
+/**
+ * True while a pause window is still open: an absent `until` means open-ended
+ * (always paused), otherwise the window closes at `until` midnight UTC.
+ */
+function pauseIsOpen(until?: string): boolean {
+  if (until === undefined) return true;
   return Date.now() < Date.parse(`${until}T00:00:00Z`);
 }
 
@@ -258,7 +277,8 @@ function pauseReasonFor(url: string): string | undefined {
   }
   for (const p of PAUSED_HOSTS) {
     if (url.includes(p.host) && pauseIsOpen(p.until)) {
-      return `Paused until ${p.until} — ${p.reason}.`;
+      const window = p.until ? `until ${p.until}` : 'indefinitely';
+      return `Paused ${window} — ${p.reason}.`;
     }
   }
   return undefined;
